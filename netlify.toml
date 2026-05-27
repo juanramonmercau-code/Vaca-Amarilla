@@ -1,0 +1,7 @@
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/proveedores"
+  to = "/.netlify/functions/proveedores"
+  status = 200
