@@ -905,6 +905,7 @@ async function loadFromAirtable() {
         web:      f['Sitio Web']           || '',
         desc:     f['Descripción de servicios'] || '',
         otros:    f['Otros rubros']        || '',
+        docs:     f['Documentos']          || [],
       };
     });
 
@@ -1124,6 +1125,19 @@ function renderDetail(id) {
           <div class="detail-row-value detail-tags">${d.certs.length ? d.certs.map(c=>`<span class="tag">${c}</span>`).join('') : '—'}</div>
         </div>
       </div>
+
+      ${d.docs && d.docs.length ? `
+      <div class="detail-section">
+        <div class="detail-section-title">Documentos</div>
+        ${d.docs.map(doc => `
+        <div class="detail-row">
+          <div class="detail-row-value">
+            <a href="${doc.url}" target="_blank" style="color:var(--accent);text-decoration:none;font-size:13px;">
+              📎 ${doc.filename || 'Documento'}
+            </a>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
 
       <div class="detail-section">
         <div class="detail-section-title">Contacto Comercial</div>
