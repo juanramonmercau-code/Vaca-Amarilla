@@ -854,8 +854,9 @@
     </div>
     <div class="sidebar-scroll">
 
+      <!-- CAMBIO 1: "Empresa" → "Nombre Empresa" -->
       <div class="search-section">
-        <span class="search-label">Empresa</span>
+        <span class="search-label">Nombre Empresa</span>
         <input class="search-input" type="text" id="search-empresa" placeholder="Buscar por nombre..." oninput="applyFilters()">
       </div>
 
@@ -891,11 +892,22 @@
 
       <div class="filter-separator"></div>
 
+      <!-- CAMBIO 2: "Sin homologación" al final — manejado en buildFilters() -->
       <div class="filter-section">
         <div class="filter-section-title" onclick="toggleSection(this)">
           Homologado por <span class="arrow">▼</span>
         </div>
         <div class="filter-options" id="filter-homo"></div>
+      </div>
+
+      <div class="filter-separator"></div>
+
+      <!-- CAMBIO 3: Nuevo filtro "Compre Neuquino" antes de ARIBA -->
+      <div class="filter-section">
+        <div class="filter-section-title" onclick="toggleSection(this)">
+          Compre Neuquino <span class="arrow">▼</span>
+        </div>
+        <div class="filter-options" id="filter-compreneuquino"></div>
       </div>
 
       <div class="filter-separator"></div>
@@ -909,8 +921,9 @@
 
       <div class="filter-separator"></div>
 
+      <!-- CAMBIO 4: Renombrado + búsqueda ampliada -->
       <div class="search-section">
-        <span class="search-label">Descripción de servicios</span>
+        <span class="search-label">Descripción adicional de servicios</span>
         <input class="search-input" type="text" id="search-desc" placeholder="Ej: válvulas, fractura, NDT..." oninput="applyFilters()">
       </div>
 
@@ -995,25 +1008,24 @@ async function loadFromAirtable() {
       const f = rec.fields;
       return {
         id: rec.id,
-        razon:    f['Razon Social']        || '',
-        cuit:     f['CUIT']                || '',
-        categoria: toArr(f['Categoría Principal']),
-        subcategoria: [
-          ...toArr(f['Subcategoria']),
-        ].filter(Boolean),
-        zona:     toArr(f['Zona Operativa']),
-        homo:     toArr(f['Homologado por']),
-        certs:    toArr(f['Certificaciones']),
-        tipo:     f['Tipo de Empresa']     || '',
-        ariba:    toArr(f['Usa ARIBA'])[0] || '',
-        base:     toArr(f['Dónde tienen base']),
-        contacto: f['Contacto comercial']  || '',
-        email:    f['Email']               || '',
-        tel:      f['Teléfono']            || '',
-        web:      f['Sitio Web']           || '',
-        desc:     f['Descripción de servicios'] || '',
-        otros:    f['Otros rubros']        || '',
-        docs:     f['Documentos']          || [],
+        razon:          f['Razon Social']           || '',
+        cuit:           f['CUIT']                   || '',
+        categoria:      toArr(f['Categoría Principal']),
+        subcategoria:   toArr(f['Subcategoria']).filter(Boolean),
+        zona:           toArr(f['Zona Operativa']),
+        homo:           toArr(f['Homologado por']),
+        certs:          toArr(f['Certificaciones']),
+        tipo:           f['Tipo de Empresa']        || '',
+        ariba:          toArr(f['Usa ARIBA'])[0]    || '',
+        compreneuquino: toArr(f['Compre Neuquino']),
+        base:           toArr(f['Dónde tienen base']),
+        contacto:       f['Contacto comercial']     || '',
+        email:          f['Email']                  || '',
+        tel:            f['Teléfono']               || '',
+        web:            f['Sitio Web']              || '',
+        desc:           f['Descripción de servicios'] || '',
+        otros:          f['Otros rubros']           || '',
+        docs:           f['Documentos']             || [],
       };
     });
 
@@ -1032,29 +1044,45 @@ async function loadFromAirtable() {
 
 // Build filter options
 function buildFilters() {
-  const fields = {
-    'filter-categoria': 'categoria',
-    'filter-subcategoria': 'subcategoria',
-    'filter-base': 'base',
-    'filter-homo': 'homo',
-    'filter-ariba': 'ariba',
+  // Campos simples (ordenados alfabéticamente)
+  const simpleFields = {
+    'filter-categoria':       'categoria',
+    'filter-subcategoria':    'subcategoria',
+    'filter-base':            'base',
+    'filter-ariba':           'ariba',
+    'filter-compreneuquino':  'compreneuquino',
   };
 
-  Object.entries(fields).forEach(([elId, field]) => {
+  Object.entries(simpleFields).forEach(([elId, field]) => {
     const values = new Set();
     DATA.forEach(d => {
       const v = d[field];
-      if (Array.isArray(v)) v.forEach(x => values.add(x));
-      else values.add(v);
+      if (Array.isArray(v)) v.forEach(x => { if (x) values.add(x); });
+      else if (v) values.add(v);
     });
     const el = document.getElementById(elId);
     [...values].sort().forEach(val => {
-      const opt = document.createElement('div');
-      opt.className = 'filter-option';
-      opt.innerHTML = `<input type="checkbox" id="cb-${elId}-${val}" data-field="${field}" data-value="${val}" onchange="applyFilters()"><label for="cb-${elId}-${val}">${val}</label>`;
-      el.appendChild(opt);
+      el.appendChild(buildOption(elId, field, val));
     });
   });
+
+  // CAMBIO 2: Homologado por — "Sin homologación" siempre al final
+  const homoValues = new Set();
+  DATA.forEach(d => d.homo.forEach(x => { if (x) homoValues.add(x); }));
+  const homoEl = document.getElementById('filter-homo');
+  const SIN_HOMO = 'Sin homologación';
+  const homoSorted = [...homoValues]
+    .filter(v => v !== SIN_HOMO)
+    .sort();
+  if (homoValues.has(SIN_HOMO)) homoSorted.push(SIN_HOMO);
+  homoSorted.forEach(val => homoEl.appendChild(buildOption('filter-homo', 'homo', val)));
+}
+
+function buildOption(elId, field, val) {
+  const opt = document.createElement('div');
+  opt.className = 'filter-option';
+  opt.innerHTML = `<input type="checkbox" id="cb-${elId}-${val}" data-field="${field}" data-value="${val}" onchange="applyFilters()"><label for="cb-${elId}-${val}">${val}</label>`;
+  return opt;
 }
 
 function getActiveFilters() {
@@ -1069,15 +1097,28 @@ function getActiveFilters() {
 }
 
 function applyFilters() {
-  const desc = document.getElementById('search-desc').value.toLowerCase();
+  const desc    = document.getElementById('search-desc').value.toLowerCase();
   const empresa = document.getElementById('search-empresa').value.toLowerCase();
   const filters = getActiveFilters();
 
   filteredData = DATA.filter(d => {
+    // Filtro nombre empresa
     if (empresa && !d.razon.toLowerCase().includes(empresa)) return false;
-    if (desc && !d.desc.toLowerCase().includes(desc)) return false;
+
+    // CAMBIO 4: búsqueda ampliada — desc + otros + categoria + subcategoria
+    if (desc) {
+      const haystack = [
+        d.desc,
+        d.otros,
+        d.categoria.join(' '),
+        d.subcategoria.join(' '),
+      ].join(' ').toLowerCase();
+      if (!haystack.includes(desc)) return false;
+    }
+
+    // Filtros de checkboxes
     for (const [field, vals] of Object.entries(filters)) {
-      const dv = d[field];
+      const dv   = d[field];
       const dArr = Array.isArray(dv) ? dv : [dv];
       if (!vals.some(v => dArr.includes(v))) return false;
     }
@@ -1087,7 +1128,7 @@ function applyFilters() {
   renderTable();
   renderActiveFilters(filters, desc, empresa);
   document.getElementById('count-visible').textContent = filteredData.length;
-  document.getElementById('count-total').textContent = DATA.length;
+  document.getElementById('count-total').textContent   = DATA.length;
 }
 
 function renderTable() {
@@ -1119,7 +1160,7 @@ function renderTable() {
 }
 
 function renderActiveFilters(filters, keyword, empresa) {
-  const el = document.getElementById('active-filters');
+  const el   = document.getElementById('active-filters');
   const tags = [];
   Object.entries(filters).forEach(([field, vals]) => {
     vals.forEach(v => tags.push({ label: v, field, value: v }));
@@ -1136,15 +1177,14 @@ function removeFilter(field, value) {
 
 function filterOptions(containerId, query) {
   const container = document.getElementById(containerId);
-  const q = query.toLowerCase().trim();
-  const options = container.querySelectorAll('.filter-option');
+  const q         = query.toLowerCase().trim();
+  const options   = container.querySelectorAll('.filter-option');
   options.forEach(opt => {
     const label = opt.querySelector('label');
-    const text = label.dataset.original || label.textContent;
-    label.dataset.original = text; // store original once
+    const text  = label.dataset.original || label.textContent;
+    label.dataset.original = text;
     if (!q || text.toLowerCase().includes(q)) {
       opt.style.display = '';
-      // highlight match
       if (q) {
         const idx = text.toLowerCase().indexOf(q);
         label.innerHTML = text.slice(0, idx) + '<mark>' + text.slice(idx, idx + q.length) + '</mark>' + text.slice(idx + q.length);
@@ -1159,7 +1199,6 @@ function filterOptions(containerId, query) {
 
 function toggleSection(el) {
   el.classList.toggle('collapsed');
-  // find the filter-options div (skip any input sibling)
   let sib = el.nextElementSibling;
   while (sib && !sib.classList.contains('filter-options')) {
     sib.style.display = el.classList.contains('collapsed') ? 'none' : '';
@@ -1180,8 +1219,8 @@ function renderDetail(id) {
   const d = DATA.find(x => x.id === id);
   if (!d) return;
   const inLicit = licitList.has(id);
-  const panel = document.getElementById('detail-panel');
-  const safeId = id.replace(/'/g, "\\'");
+  const panel   = document.getElementById('detail-panel');
+  const safeId  = id.replace(/'/g, "\\'");
   panel.innerHTML = `
     <div class="detail-header">
       <div class="detail-empresa">${d.razon || '—'}</div>
@@ -1219,6 +1258,12 @@ function renderDetail(id) {
         <div class="detail-row">
           <div class="detail-row-label">Usa ARIBA</div>
           <div class="detail-row-value" style="${d.ariba==='SI'?'color:var(--green);font-weight:600':'color:var(--text-muted)'}">${d.ariba || '—'}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-row-label">Compre Neuquino</div>
+          <div class="detail-row-value" style="${d.compreneuquino.includes('SI')?'color:var(--green);font-weight:600':'color:var(--text-muted)'}">
+            ${d.compreneuquino.length ? d.compreneuquino.join(', ') : '—'}
+          </div>
         </div>
       </div>
 
@@ -1285,7 +1330,7 @@ function toggleLicit(id) {
 }
 
 function updateLicitBar() {
-  const bar = document.getElementById('licit-bar');
+  const bar   = document.getElementById('licit-bar');
   const count = document.getElementById('licit-count');
   if (licitList.size > 0) {
     bar.style.display = 'flex';
@@ -1298,8 +1343,7 @@ function updateLicitBar() {
 function resetFilters() {
   document.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
   document.getElementById('search-empresa').value = '';
-  document.getElementById('search-desc').value = '';
-  // clear filter searches
+  document.getElementById('search-desc').value    = '';
   document.querySelectorAll('.filter-search').forEach(i => { i.value = ''; });
   document.querySelectorAll('.filter-option').forEach(o => { o.style.display = ''; });
   applyFilters();
@@ -1310,39 +1354,37 @@ function exportXLSX() {
   if (toExport.length === 0) { alert('No hay empresas en la lista.'); return; }
 
   const rows = toExport.map(d => ({
-    'Razón Social': d.razon,
-    'CUIT': d.cuit,
-    'Categoría Principal': d.categoria.join('; '),
-    'Subcategoría': d.subcategoria.join('; '),
-    'Zona Operativa': d.zona.join('; '),
-    'Dónde tienen base': d.base.join('; '),
-    'Tipo de Empresa': d.tipo,
-    'Homologado por': d.homo.join('; '),
-    'Certificaciones': d.certs.join('; '),
-    'Usa ARIBA': d.ariba,
-    'Contacto Comercial': d.contacto,
-    'Email': d.email,
-    'Teléfono': d.tel,
-    'Sitio Web': d.web,
+    'Razón Social':            d.razon,
+    'CUIT':                    d.cuit,
+    'Categoría Principal':     d.categoria.join('; '),
+    'Subcategoría':            d.subcategoria.join('; '),
+    'Zona Operativa':          d.zona.join('; '),
+    'Dónde tienen base':       d.base.join('; '),
+    'Tipo de Empresa':         d.tipo,
+    'Homologado por':          d.homo.join('; '),
+    'Certificaciones':         d.certs.join('; '),
+    'Usa ARIBA':               d.ariba,
+    'Compre Neuquino':         d.compreneuquino.join('; '),
+    'Contacto Comercial':      d.contacto,
+    'Email':                   d.email,
+    'Teléfono':                d.tel,
+    'Sitio Web':               d.web,
     'Descripción de Servicios': d.desc,
-    // Decision columns — blank for analyst to fill
-    'Invitada': '',
-    'Responde': '',
+    'Invitada':        '',
+    'Responde':        '',
     'Oferta recibida': '',
-    'Observaciones': '',
+    'Observaciones':   '',
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);
-
-  // Column widths
   const cols = [
     {wch:40},{wch:18},{wch:28},{wch:40},{wch:22},{wch:22},{wch:16},
-    {wch:24},{wch:22},{wch:10},{wch:28},{wch:32},{wch:18},{wch:28},
-    {wch:60},{wch:12},{wch:12},{wch:16},{wch:30}
+    {wch:24},{wch:22},{wch:10},{wch:16},{wch:28},{wch:32},{wch:18},
+    {wch:28},{wch:60},{wch:12},{wch:12},{wch:16},{wch:30}
   ];
   ws['!cols'] = cols;
 
-  const wb = XLSX.utils.book_new();
+  const wb   = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Matriz Licitación');
   const fname = `matriz-licitacion-${new Date().toISOString().slice(0,10)}.xlsx`;
   XLSX.writeFile(wb, fname);
