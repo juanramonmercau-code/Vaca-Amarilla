@@ -149,6 +149,116 @@
   }
   .btn-export:hover { background: var(--accent2); }
 
+  /* MODAL REGISTRO COMPRADOR */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 420px;
+    max-width: calc(100vw - 32px);
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+
+  .modal-header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .modal-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+
+  .modal-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .modal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .modal-field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .modal-field input::placeholder { color: var(--text-muted); }
+  .modal-field input:focus { border-color: var(--accent); }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .btn-modal-skip {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-modal-skip:hover { border-color: var(--text-muted); color: var(--text); }
+
+  .btn-modal-submit {
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    color: #0f1117;
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-modal-submit:hover { background: var(--accent2); }
+
   /* LAYOUT */
   .app-body {
     display: flex;
@@ -849,7 +959,7 @@
   <div class="header-title">Base de datos proveedores de servicios O&amp;G</div>
   <div class="header-right">
     <div class="count-badge">Mostrando <strong id="count-visible">0</strong> de <strong id="count-total">0</strong> proveedores</div>
-    <button class="btn-export" onclick="exportXLSX()">↓ Exportar matriz (.xlsx)</button>
+    <button class="btn-export" onclick="manejarDescarga()">↓ Exportar matriz (.xlsx)</button>
   </div>
 </header>
 
@@ -970,7 +1080,7 @@
     </div>
     <div class="licit-bar" id="licit-bar" style="display:none">
       📋 Lista de licitación: <span class="count" id="licit-count">0</span> empresa(s) &nbsp;—&nbsp; Hacé click en el círculo de cada fila para agregar/quitar
-      <button class="btn-ver" onclick="exportXLSX()">↓ Exportar matriz</button>
+      <button class="btn-ver" onclick="manejarDescarga()">↓ Exportar matriz</button>
     </div>
   </div>
 
@@ -1403,8 +1513,134 @@ gtag('event', 'descarga_excel', { 'event_category': 'conversion', 'value': toExp
 
 function exportLicitacion() { exportXLSX(); }
 
-// Init
-loadFromAirtable();
+<!-- MODAL REGISTRO COMPRADOR -->
+<div class="modal-overlay" id="modal-comprador">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Antes de descargar</div>
+      <div class="modal-subtitle">Dejanos tus datos para mejorar el directorio. Es opcional — si preferís omitir, el archivo se descarga igual.</div>
+    </div>
+    <div class="modal-fields">
+      <div class="modal-field">
+        <label>Nombre</label>
+        <input type="text" id="modal-nombre" placeholder="Tu nombre" autocomplete="name">
+      </div>
+      <div class="modal-field">
+        <label>Empresa</label>
+        <input type="text" id="modal-empresa" placeholder="Empresa donde trabajás" autocomplete="organization">
+      </div>
+      <div class="modal-field">
+        <label>Email</label>
+        <input type="email" id="modal-email" placeholder="tu@empresa.com" autocomplete="email">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-skip" id="modal-skip">Omitir y descargar</button>
+      <button class="btn-modal-submit" id="modal-submit">Registrarme y descargar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── REGISTRO COMPRADOR ─────────────────────────────────────────────────────────
+
+const COOKIE_KEY = 'va_comprador_email';
+const COMPRADORES_ENDPOINT = '/.netlify/functions/compradores';
+
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setCookie(name, value, days) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+// Devuelve string con los filtros activos en ese momento
+function getFiltrosActivos() {
+  const checks = [...document.querySelectorAll('input[type=checkbox]:checked')];
+  const valores = checks.map(cb => cb.dataset.value || cb.value).filter(Boolean);
+  const keyword = document.getElementById('search-empresa')?.value?.trim();
+  const desc    = document.getElementById('search-desc')?.value?.trim();
+  if (keyword) valores.unshift(`Empresa: ${keyword}`);
+  if (desc)    valores.unshift(`Descripción: ${desc}`);
+  return valores.join('; ') || '(sin filtros)';
+}
+
+// Envía un registro a Airtable vía Netlify Function
+async function registrarComprador({ nombre, empresa, email, filtros }) {
+  try {
+    await fetch(COMPRADORES_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, empresa, email, filtros })
+    });
+  } catch (e) {
+    // Silencioso — no bloqueamos la descarga si falla
+    console.warn('registrarComprador error:', e);
+  }
+}
+
+// Lógica principal: intercepta exportXLSX
+function manejarDescarga() {
+  const emailGuardado = getCookie(COOKIE_KEY);
+  const filtros = getFiltrosActivos();
+
+  if (emailGuardado) {
+    // Ya se registró antes → registramos solo filtros + email, descargamos directo
+    registrarComprador({ email: emailGuardado, filtros });
+    exportXLSX();
+    return;
+  }
+
+  // Primera vez → mostramos modal
+  const overlay  = document.getElementById('modal-comprador');
+  const inputNom = document.getElementById('modal-nombre');
+  const inputEmp = document.getElementById('modal-empresa');
+  const inputMail= document.getElementById('modal-email');
+
+  // Limpiamos campos
+  inputNom.value = '';
+  inputEmp.value = '';
+  inputMail.value = '';
+
+  overlay.classList.add('active');
+
+  // Foco en el primer campo
+  setTimeout(() => inputNom.focus(), 50);
+
+  // Cerrar con overlay click
+  overlay.onclick = (e) => { if (e.target === overlay) omitirYDescargar(); };
+
+  document.getElementById('modal-skip').onclick   = omitirYDescargar;
+  document.getElementById('modal-submit').onclick = submitYDescargar;
+
+  function cerrarModal() {
+    overlay.classList.remove('active');
+    overlay.onclick = null;
+  }
+
+  function omitirYDescargar() {
+    cerrarModal();
+    exportXLSX();
+    // NO guardamos cookie → la próxima descarga vuelve a mostrar el modal
+  }
+
+  function submitYDescargar() {
+    const nombre  = inputNom.value.trim();
+    const empresa = inputEmp.value.trim();
+    const email   = inputMail.value.trim();
+
+    // Email es el identificador — si no lo completan tratamos como omitir
+    if (!email) { omitirYDescargar(); return; }
+
+    // Guardamos cookie por 365 días
+    setCookie(COOKIE_KEY, email, 365);
+
+    cerrarModal();
+    registrarComprador({ nombre, empresa, email, filtros });
+    exportXLSX();
+  }
+}
 </script>
-</body>
-</html>
