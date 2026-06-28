@@ -1363,7 +1363,7 @@ function resetFilters() {
 function exportXLSX() {
   const toExport = licitList.size > 0 ? DATA.filter(d => licitList.has(d.id)) : filteredData;
   if (toExport.length === 0) { alert('No hay empresas en la lista.'); return; }
-
+gtag('event', 'descarga_excel', { 'event_category': 'conversion', 'value': toExport.length });
   const rows = toExport.map(d => ({
     'Razón Social':            d.razon,
     'CUIT':                    d.cuit,
