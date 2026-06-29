@@ -1,33 +1,41 @@
 exports.handler = async function(event) {
-  // Solo aceptamos POST
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
-  }
+  console.log('METHOD:', event.httpMethod);
 
   // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type' },
+      headers: { 
+        'Access-Control-Allow-Origin': '*', 
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+      },
       body: ''
     };
   }
 
+  // Solo aceptamos POST
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: JSON.stringify({ error: 'Method not allowed' }) };
+  }
+
   const TOKEN = process.env.AIRTABLE_TOKEN;
   const BASE  = 'appbEEfOcGn1CsvKY';
-  const TABLE = 'tblzb8vSPigUIt99f'; // Tabla Compradores
+  const TABLE = 'tblzb8vSPigUIt99f';
 
   try {
     const body = JSON.parse(event.body || '{}');
+    console.log('BODY recibido:', JSON.stringify(body));
+
     const { nombre, empresa, email, filtros } = body;
 
-    // Armamos los campos para Airtable
-    // Email es el único obligatorio para las descargas siguientes (viene de cookie)
     const fields = {};
     if (nombre)  fields['Nombre']         = nombre;
     if (empresa) fields['Empresa']        = empresa;
     if (email)   fields['Email']          = email;
-    if (filtros) fields['Filtros usados'] = filtros; // string con los filtros activos
+    if (filtros) fields['Filtros usados'] = filtros;
+
+    console.log('FIELDS a enviar:', JSON.stringify(fields));
 
     const res = await fetch(`https://api.airtable.com/v0/${BASE}/${TABLE}`, {
       method: 'POST',
@@ -38,16 +46,18 @@ exports.handler = async function(event) {
       body: JSON.stringify({ fields })
     });
 
+    const data = await res.json();
+    console.log('AIRTABLE STATUS:', res.status);
+    console.log('AIRTABLE RESPONSE:', JSON.stringify(data));
+
     if (!res.ok) {
-      const err = await res.json();
       return {
         statusCode: res.status,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: err })
+        body: JSON.stringify({ error: data })
       };
     }
 
-    const data = await res.json();
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
@@ -55,6 +65,7 @@ exports.handler = async function(event) {
     };
 
   } catch (err) {
+    console.log('ERROR:', err.message);
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
