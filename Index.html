@@ -427,29 +427,44 @@
 
     /* ─── CTA FINAL ─── */
     /* FEEDBACK */
+    .feedback-section {
+      padding: 80px 48px;
+      text-align: center;
+    }
     .feedback-tabs {
       display: flex;
-      gap: 12px;
-      margin-bottom: 32px;
+      gap: 8px;
+      margin: 32px auto 40px;
       justify-content: center;
+      background: var(--gris-medio);
+      border-radius: 8px;
+      padding: 6px;
+      width: fit-content;
     }
     .feedback-tab {
       background: none;
-      border: 1px solid var(--border);
+      border: none;
       border-radius: 6px;
-      color: var(--text-muted);
-      font-family: 'Barlow', sans-serif;
+      color: var(--gris-texto);
+      font-family: 'Inter', sans-serif;
       font-size: 14px;
       font-weight: 600;
-      padding: 10px 24px;
+      padding: 10px 28px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: all 0.2s;
     }
-    .feedback-tab:hover { border-color: var(--accent); color: var(--text); }
-    .feedback-tab.active { background: var(--accent); border-color: var(--accent); color: #0f1117; }
+    .feedback-tab:hover { color: var(--blanco); }
+    .feedback-tab.active { 
+      background: var(--amarillo); 
+      color: var(--negro);
+    }
     .feedback-form-wrap {
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
+      background: var(--gris-oscuro);
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 32px;
     }
 
     .cta-section {
@@ -708,9 +723,10 @@
 </section>
 
 <!-- FEEDBACK -->
-<section class="section" id="feedback">
+<section class="section feedback-section" id="feedback">
   <p class="section-label">Feedback</p>
   <h2 class="section-title">CONTANOS<br />TU EXPERIENCIA</h2>
+  <p style="color:var(--gris-texto); font-size:15px; margin-top:-16px;">Tu opinión nos ayuda a mejorar la plataforma.</p>
 
   <div class="feedback-tabs">
     <button class="feedback-tab active" onclick="switchTab('compradores')">Soy comprador</button>
